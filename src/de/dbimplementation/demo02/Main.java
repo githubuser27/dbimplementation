@@ -3,13 +3,14 @@
  */
 package de.dbimplementation.demo02;
 
-import java.awt.print.Book;
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGQuery.hg;
+import org.hypergraphdb.HGHandleHolder;
 import org.hypergraphdb.HGSearchResult;
 import org.hypergraphdb.HGValueLink;
 import org.hypergraphdb.HyperGraph;
@@ -18,7 +19,6 @@ import org.hypergraphdb.query.AtomPartCondition;
 import org.hypergraphdb.query.AtomTypeCondition;
 import org.hypergraphdb.query.ComparisonOperator;
 import org.hypergraphdb.query.HGQueryCondition;
-import org.hypergraphdb.query.IncidentCondition;
 
 import de.dbimplementation.demo02.Relationship.Relation;
 
@@ -33,19 +33,19 @@ public class Main {
 	 */
 	public static void main(String[] args) {
 		HyperGraph graph = setup();
-				
+
 		queryAllPersons(graph);
-		
+
 		queryAllRelationships(graph);
-		
+
 		queryAllFriendships(graph);
-		
+
 		queryAllMarriages(graph);
-		
+
 		queryAllRelativesOfName(graph, "Lukas");
-		
+
 		queryAllFriendshipsBetweenPersonsKnowingName(graph, "Lukas");
-		
+
 		graph.close();
 	}
 
@@ -57,7 +57,7 @@ public class Main {
 		File dir = new File("/location/" + rand);
 		dir.mkdir();
 		HyperGraph graph = new HyperGraph("/location/" + rand);
-		
+
 		HGHandle handleLu = graph.add(new Person("Lukas"));
 		HGHandle handleTo = graph.add(new Person("Tobi"));
 		HGHandle handleSch = graph.add(new Person("Schwester"));
@@ -66,7 +66,7 @@ public class Main {
 		HGHandle handleTBr = graph.add(new Person("Tobi_Bruder"));
 		HGHandle handleMa = graph.add(new Person("Matze"));
 		HGHandle handleFr = graph.add(new Person("Fremder"));
-		
+
 		HGValueLink link1 = new HGValueLink(new Relationship(Relation.related), handleLu, handleVa);
 		HGValueLink link2 = new HGValueLink(new Relationship(Relation.related), handleLu, handleMu);
 		HGValueLink link3 = new HGValueLink(new Relationship(Relation.married), handleVa, handleMu);
@@ -94,6 +94,7 @@ public class Main {
 		graph.add(link11);
 		graph.add(link12);
 		graph.add(link13);
+		graph.add(link14);
 		return graph;
 	}
 
@@ -103,24 +104,57 @@ public class Main {
 	 */
 	private static void queryAllFriendshipsBetweenPersonsKnowingName(
 			HyperGraph graph, String name) {
-		List<HGValueLink> rs_list;
-		HGQueryCondition condition;
-		HGSearchResult<HGHandle> rs;
-		System.out.println("\nAlle Freundschaften zwischen Personen die mit Lukas verwandt oder befreundet sind:");
-		condition = new And(
-	              new AtomTypeCondition(Person.class), 
-	              new AtomPartCondition(new String[]{"name"}, new String(name), ComparisonOperator.EQ)
-	              );
-	    rs = graph.find(condition);
-		rs_list = graph.getAll(
-				hg.and(
-						hg.incident(rs.next())
-						)
+		System.out.println("\nAll Friendships between Persons knowing " + name + ":");
+
+		// Finde Person
+		HGQueryCondition condition = new And(
+				new AtomTypeCondition(Person.class), 
+				new AtomPartCondition(new String[]{"name"}, new String(name), ComparisonOperator.EQ)
 				);
-		for (HGValueLink r : rs_list) {
-			System.out.println(r);
-			System.out.println("\t" + graph.get(r.getTargetAt(0)) + " <--> " + graph.get(r.getTargetAt(1)));
-			System.out.println("\tStatus: " + r.getValue());
+		HGSearchResult<HGHandle> rs = graph.find(condition);
+		HGHandle handle = rs.next();
+
+		// Finde alle Links zu Personen die diese Person kennen (= Friendship oder Relationship)
+		List<HGValueLink> rs_list;
+		rs_list = graph.getAll(
+			hg.incident(handle)
+			);
+		
+		// Sammle aus diesen Links die anderen Personen
+		List<HGHandle> pers_handles = new ArrayList<HGHandle>();
+		List<HGHandle> pers_handles2 = new ArrayList<HGHandle>();
+		for (HGValueLink l: rs_list) {
+			if (!l.getTargetAt(0).equals(handle)  && !pers_handles.contains(l.getTargetAt(0))) {
+				pers_handles.add(l.getTargetAt(0));
+				pers_handles2.add(l.getTargetAt(0));
+			}
+			else
+				if (!pers_handles.contains(l.getTargetAt(1))) {
+					pers_handles.add(l.getTargetAt(1));
+					pers_handles2.add(l.getTargetAt(1));
+				}
+		}
+		// Finde alle Friendships zwischen diesen Personen
+		for (HGHandle h: pers_handles) {
+			//System.out.println(graph.get(h));
+			for (HGHandle h2: pers_handles2) {
+				if (!h.equals(h2)) {
+					List<HGValueLink> matches;
+					matches = graph.getAll(
+						hg.and(
+							hg.incident(h),
+							hg.incident(h2),
+							hg.type(Friendship.class)
+							)
+						);
+					for (HGValueLink m : matches) {
+						System.out.println(m);
+						System.out.println("\t" + graph.get(m.getTargetAt(0)) + " <--> " + graph.get(m.getTargetAt(1)));
+						System.out.println("\tStatus: " + m.getValue());
+					}
+				}
+			}
+			pers_handles2.remove(h);
 		}
 		rs.close();
 	}
@@ -130,15 +164,15 @@ public class Main {
 	 * @param name
 	 */
 	private static void queryAllRelativesOfName(HyperGraph graph, String name) {
-		List<HGValueLink> rs_list;
-		System.out.println("\nAlle, die mit " + name + " verwandt sind:");
+		System.out.println("\nAll relatives of " + name + ":");
 		// Finde Person
 		HGQueryCondition condition = new And(
-	              new AtomTypeCondition(Person.class), 
-	              new AtomPartCondition(new String[]{"name"}, new String(name), ComparisonOperator.EQ)
-	              );
-	    HGSearchResult<HGHandle> rs = graph.find(condition);
-	    // Finde alle Verwandtschaften, an denen diese Person beteiligt ist
+				new AtomTypeCondition(Person.class), 
+				new AtomPartCondition(new String[]{"name"}, new String(name), ComparisonOperator.EQ)
+				);
+		HGSearchResult<HGHandle> rs = graph.find(condition);
+		// Finde alle Verwandtschaften-Links, an denen diese Person beteiligt ist
+		List<HGValueLink> rs_list;
 		rs_list = graph.getAll(
 				hg.and(
 						hg.type(Relationship.class),
@@ -153,7 +187,7 @@ public class Main {
 				System.out.println(pers);
 			else
 				System.out.println((Person)graph.get(r.getTargetAt(1)));
-				
+
 		}
 		rs.close();
 	}
