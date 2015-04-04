@@ -8,6 +8,7 @@ import org.hypergraphdb.HGHandle;
 import org.hypergraphdb.HGPlainLink;
 import org.hypergraphdb.HGQuery.hg;
 import org.hypergraphdb.HyperGraph;
+import org.hypergraphdb.atom.*;
 
 
 /**
@@ -23,6 +24,8 @@ public class Main {
 
 		HyperGraph graph = new HyperGraph("/location");
 		
+		
+		/*
 		String someObject = "Lorem ipsum";
 		HGHandle handle1 = graph.add(someObject);
 		HGHandle handle2 = graph.add(someObject);
@@ -45,6 +48,7 @@ public class Main {
 		HGHandle duplicateLink = graph.add(new HGPlainLink(handle1, handle2));
         List<HGHandle> dupsList = hg.findAll(graph, hg.link(handle1, handle2));
         System.out.println("querying for link returned that duplicate Link? :" + dupsList.contains(duplicateLink));
+        */
 	}
 
 }
