@@ -32,6 +32,27 @@ public class Main {
 	 * @param args
 	 */
 	public static void main(String[] args) {
+		HyperGraph graph = setup();
+				
+		queryAllPersons(graph);
+		
+		queryAllRelationships(graph);
+		
+		queryAllFriendships(graph);
+		
+		queryAllMarriages(graph);
+		
+		queryAllRelativesOfName(graph, "Lukas");
+		
+		queryAllFriendshipsBetweenPersonsKnowingName(graph, "Lukas");
+		
+		graph.close();
+	}
+
+	/**
+	 * @return
+	 */
+	private static HyperGraph setup() {
 		long rand = new Date().getTime();
 		File dir = new File("/location/" + rand);
 		dir.mkdir();
@@ -73,95 +94,22 @@ public class Main {
 		graph.add(link11);
 		graph.add(link12);
 		graph.add(link13);
-		
-		List<Person> pers_list;
+		return graph;
+	}
+
+	/**
+	 * @param graph
+	 * @param name
+	 */
+	private static void queryAllFriendshipsBetweenPersonsKnowingName(
+			HyperGraph graph, String name) {
 		List<HGValueLink> rs_list;
-		List<HGValueLink> fs_list;
-		
-		System.out.println("\nAlle Personen:");
-		pers_list = graph.getAll(
-				hg.type(Person.class)
-				);
-		for (Person p : pers_list) {
-			System.out.println(p);
-		}
-		
-		System.out.println("\nAlle Verwandtschaften:");
-		rs_list = graph.getAll(
-				hg.type(Relationship.class)
-				);
-		for (HGValueLink r : rs_list) {
-			System.out.println(r);
-			System.out.println("\t" + graph.get(r.getTargetAt(0)) + " <--> " + graph.get(r.getTargetAt(1)));
-			System.out.println("\tStatus: " + r.getValue());
-		}
-		
-		System.out.println("\nAlle Freundschaften:");
-		fs_list = graph.getAll(
-				hg.type(Friendship.class)
-				);
-		for (HGValueLink f : fs_list) {
-			System.out.println(f);
-			System.out.println("\t" + graph.get(f.getTargetAt(0)) + " <--> " + graph.get(f.getTargetAt(1)));
-			System.out.println("\tStatus: " + f.getValue());
-		}
-		
-		System.out.println("\nAlle Verheirateten:");
-		rs_list = graph.getAll(
-				hg.and(
-						hg.type(Relationship.class),
-						hg.eq("relation", Relation.married)
-						)
-				);
-		for (HGValueLink r : rs_list) {
-			System.out.println(r);
-			System.out.println("\t" + graph.get(r.getTargetAt(0)) + " <--> " + graph.get(r.getTargetAt(1)));
-			System.out.println("\tStatus: " + r.getValue());
-		}
-		
-		System.out.println("\nAlle, die mit Lukas verwandt sind:");
-		HGQueryCondition condition = new And(
-	              new AtomTypeCondition(Person.class), 
-	              new AtomPartCondition(new String[]{"name"}, new String("Lukas"), ComparisonOperator.EQ)
-	              );
-	    HGSearchResult<HGHandle> rs = graph.find(condition);
-	    HGQueryCondition condition2 = new And(
-	              new AtomTypeCondition(Relationship.class), 
-	              new AtomPartCondition(new String[]{"relation"}, Relation.related, ComparisonOperator.EQ),
-	              new IncidentCondition(rs.next())
-	              );
-	    HGSearchResult<HGHandle> rs2 = graph.find(condition2);
-	    while(rs2.hasNext()) {
-	    	HGHandle match = rs2.next();
-	    	System.out.println(graph.get(match));
-	    	HGValueLink vl = graph.get(match);
-	    	Relationship match_rs1 = graph.get(vl.getTargetAt(0));
-	    	Relationship match_rs2 = graph.get(vl.getTargetAt(1));
-	    	if match_rs1.
-			//System.out.println("\t" + graph.get(r.getTargetAt(0)) + " <--> " + graph.get(r.getTargetAt(1)));
-			//System.out.println("\tStatus: " + r.getValue());
-			//if (r.getTargetAt(0).equals(obj))
-	    }
-		/*rs_list = graph.getAll(
-				hg.and(
-						hg.type(Relationship.class),
-						hg.eq("relation", Relation.related),
-						hg.incident(rs.next())
-						)
-				);
-		for (HGValueLink r : rs_list) {
-			System.out.println(r);
-			System.out.println("\t" + graph.get(r.getTargetAt(0)) + " <--> " + graph.get(r.getTargetAt(1)));
-			System.out.println("\tStatus: " + r.getValue());
-			if (r.getTargetAt(0).equals(obj))
-		}*/
-		rs.close();
-		rs2.close();
-		
+		HGQueryCondition condition;
+		HGSearchResult<HGHandle> rs;
 		System.out.println("\nAlle Freundschaften zwischen Personen die mit Lukas verwandt oder befreundet sind:");
 		condition = new And(
 	              new AtomTypeCondition(Person.class), 
-	              new AtomPartCondition(new String[]{"name"}, new String("Lukas"), ComparisonOperator.EQ)
+	              new AtomPartCondition(new String[]{"name"}, new String(name), ComparisonOperator.EQ)
 	              );
 	    rs = graph.find(condition);
 		rs_list = graph.getAll(
@@ -175,9 +123,104 @@ public class Main {
 			System.out.println("\tStatus: " + r.getValue());
 		}
 		rs.close();
-		
-		
-		graph.close();
+	}
+
+	/**
+	 * @param graph
+	 * @param name
+	 */
+	private static void queryAllRelativesOfName(HyperGraph graph, String name) {
+		List<HGValueLink> rs_list;
+		System.out.println("\nAlle, die mit " + name + " verwandt sind:");
+		// Finde Person
+		HGQueryCondition condition = new And(
+	              new AtomTypeCondition(Person.class), 
+	              new AtomPartCondition(new String[]{"name"}, new String(name), ComparisonOperator.EQ)
+	              );
+	    HGSearchResult<HGHandle> rs = graph.find(condition);
+	    // Finde alle Verwandtschaften, an denen diese Person beteiligt ist
+		rs_list = graph.getAll(
+				hg.and(
+						hg.type(Relationship.class),
+						hg.eq("relation", Relation.related),
+						hg.incident(rs.next())
+						)
+				);
+		// Andere an Verwandtschaft beteiligte Person ausgeben
+		for (HGValueLink r : rs_list) {
+			Person pers = graph.get(r.getTargetAt(0));
+			if (!pers.getName().equals(name))
+				System.out.println(pers);
+			else
+				System.out.println((Person)graph.get(r.getTargetAt(1)));
+				
+		}
+		rs.close();
+	}
+
+	/**
+	 * @param graph
+	 */
+	private static void queryAllMarriages(HyperGraph graph) {
+		List<HGValueLink> rs_list;
+		System.out.println("\nAll marriages:");
+		rs_list = graph.getAll(
+				hg.and(
+						hg.type(Relationship.class),
+						hg.eq("relation", Relation.married)
+						)
+				);
+		for (HGValueLink r : rs_list) {
+			System.out.println(r);
+			System.out.println("\t" + graph.get(r.getTargetAt(0)) + " <--> " + graph.get(r.getTargetAt(1)));
+			System.out.println("\tStatus: " + r.getValue());
+		}
+	}
+
+	/**
+	 * @param graph
+	 */
+	private static void queryAllFriendships(HyperGraph graph) {
+		List<HGValueLink> fs_list;
+		System.out.println("\nAll Friendships:");
+		fs_list = graph.getAll(
+				hg.type(Friendship.class)
+				);
+		for (HGValueLink f : fs_list) {
+			System.out.println(f);
+			System.out.println("\t" + graph.get(f.getTargetAt(0)) + " <--> " + graph.get(f.getTargetAt(1)));
+			System.out.println("\tStatus: " + f.getValue());
+		}
+	}
+
+	/**
+	 * @param graph
+	 */
+	private static void queryAllRelationships(HyperGraph graph) {
+		List<HGValueLink> rs_list;
+		System.out.println("\nAll Relationships in the graph:");
+		rs_list = graph.getAll(
+				hg.type(Relationship.class)
+				);
+		for (HGValueLink r : rs_list) {
+			System.out.println(r);
+			System.out.println("\t" + graph.get(r.getTargetAt(0)) + " <--> " + graph.get(r.getTargetAt(1)));
+			System.out.println("\tStatus: " + r.getValue());
+		}
+	}
+
+	/**
+	 * @param graph
+	 */
+	private static void queryAllPersons(HyperGraph graph) {
+		List<Person> pers_list;
+		System.out.println("\nAll Persons in the graph:");
+		pers_list = graph.getAll(
+				hg.type(Person.class)
+				);
+		for (Person p : pers_list) {
+			System.out.println(p);
+		}
 	}
 
 }

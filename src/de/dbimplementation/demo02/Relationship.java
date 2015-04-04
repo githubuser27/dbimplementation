@@ -1,6 +1,4 @@
-/**
- * 
- */
+
 package de.dbimplementation.demo02;
 
 /**
